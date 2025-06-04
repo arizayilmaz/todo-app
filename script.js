@@ -98,8 +98,12 @@ function renderTasks(filter = "all") {
 
     // --------------- Düzenleme Butonu Oluşturma ---------------
     const editBtn = document.createElement("button");
+    // Tailwind: text-green-500 ile yeşil simge, hover:text-green-700 ile fare üstünde koyu yeşil,
+    // ml-2 ile soldan boşluk, focus:outline-none ile odak konturunu kaldırıyoruz.
     editBtn.className = "text-green-500 hover:text-green-700 ml-2 focus:outline-none";
+    // Butonun içine kalem emojisi ekliyoruz.
     editBtn.innerHTML = "✏️";
+    // Butona tıklandığında editTask fonksiyonunu çağırarak görevi düzenliyoruz.
     editBtn.addEventListener("click", () => {
       editTask(task.id);
     });
@@ -129,7 +133,7 @@ function addTask(text) {
   // 2) Yeni görev objesini oluştur
   //    - id: Benzersiz bir kimlik oluşturmak için Date.now() kullanıyoruz ve string'e çeviriyoruz.
   //    - text: Görev yazısını trim() ile baş/son boşlukları silerek kaydediyoruz.
-  //    - completed: Yeni eklenen görev başlamada tamamlanmamış (false) olacak.
+  //    - completed: Yeni eklenen görev başlangıçta tamamlanmamış (false) olacak.
   const newTask = {
     id: Date.now().toString(),
     text: text.trim(),
@@ -295,4 +299,298 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 5) Uygulama ilk açıldığında mevcut filtre (başlangıçta "all") ile listeyi çiz
   renderTasks(currentFilter);
+});
+
+
+// ------------- A) NOTES (NOTLAR) LocalStorage Fonksiyonları ---------------
+
+// Notları localStorage'dan alır (key: "notes")
+function loadNotesFromLocalStorage() {
+  const data = localStorage.getItem("notes");
+  return data ? JSON.parse(data) : [];
+}
+
+// Notları localStorage'a kaydeder (key: "notes")
+function saveNotesToLocalStorage(notes) {
+  localStorage.setItem("notes", JSON.stringify(notes));
+}
+
+// ------------- B) Global Değişken -----------------------
+
+// Notlar panelinin hangi filtrede olduğunu tutar
+let currentNoteFilter = "all"; // "all", "active", "completed"
+
+// ------------- C) Not Listesini Render Et -------------------------
+
+// Bu fonksiyon, <ul id="note-list"> öğesini temizler,
+// localStorage'dan notları alır, filtre uygular ve her bir notu <li> olarak ekrana yazar.
+// Parametre olarak filtre türünü alır. Örneğin "all", "active" veya "completed".
+function renderNotes(filter = "all") {
+  // 1) Not listesini tutan <ul> öğesini seçiyoruz.
+  const noteListEl = document.getElementById("note-list");
+  // 2) Önceki <li> öğelerini kaldırmak için innerHTML'i sıfırlıyoruz.
+  noteListEl.innerHTML = "";
+
+  // 3) localStorage'dan tüm notları alıyoruz (dizi halinde).
+  const notes = loadNotesFromLocalStorage();
+
+  // 4) Şu anki filtreye göre notları süzüyoruz.
+  //    - "all" ise tüm notları döndür.
+  //    - "active" ise tamamlanmamış notları döndür.
+  //    - "completed" ise tamamlanmış notları döndür.
+  const filteredNotes = notes.filter((note) => {
+    if (filter === "all") return true;
+    if (filter === "active") return !note.completed;
+    if (filter === "completed") return note.completed;
+  });
+
+  // 5) Filtrelenmiş her bir not için <li> öğesi oluşturup ekrana ekliyoruz.
+  filteredNotes.forEach((note) => {
+    // a) Yeni bir <li> öğesi oluşturuyoruz.
+    const li = document.createElement("li");
+
+    // b) Tailwind sınıflarıyla birlikte, eğer not tamamlanmışsa ek CSS sınıfları ekliyoruz:
+    //    - opacity-60: %60 opaklık, yarı saydam görünüm
+    //    - line-through: Üstü çizili metin stili
+    //    - text-gray-500: Gri renkte metin rengi
+    li.className =
+      "flex items-center justify-between py-2 px-2 hover:bg-gray-50 " +
+      (note.completed ? "opacity-60 line-through text-gray-500" : "");
+    // c) Her <li> öğesine not id'sini data-id özniteliği olarak ekliyoruz.
+    //    Bu, tıklama veya silme sırasında hangi notun seçildiğini bulmak için kullanılır.
+    li.setAttribute("data-id", note.id);
+
+    // --------------- Checkbox Oluşturma ---------------
+    // Checkbox, not tamamlandı/tamamlanmadı durumunu tutar.
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    // Eğer note.completed true ise checkbox işaretli, değilse boş olur.
+    checkbox.checked = note.completed;
+    // Tailwind: w-5 h-5 ile checkbox boyutunu 20px x 20px yapıyoruz.
+    // text-blue-500 ile işaret simgesinin rengini mavi tonuna ayarlıyoruz.
+    checkbox.className = "w-5 h-5 text-blue-500";
+    // Checkbox durumu değiştiğinde ilgili notun tamamlanma durumunu değiştirecek fonksiyonu çağırıyoruz.
+    checkbox.addEventListener("change", () => {
+      toggleNoteCompleted(note.id);
+    });
+
+    // --------------- Not Metni (<span>) Oluşturma ---------------
+    const span = document.createElement("span");
+    // Tailwind: ml-3 ile soldan boşluk, flex-1 ile kalan alanı kapla, text-gray-800 ile koyu gri metin rengi
+    span.className = "ml-3 flex-1 text-gray-800";
+    // Kullanıcının yazdığı not metnini ekrana yazıyoruz.
+    span.textContent = note.text;
+
+    // --------------- Silme Butonu Oluşturma ---------------
+    const deleteBtn = document.createElement("button");
+    // Tailwind: text-red-500 ile kırmızı simge, hover:text-red-700 ile fare üstünde koyu kırmızı,
+    // ml-2 ile soldan boşluk, focus:outline-none ile odak konturunu kaldırıyoruz.
+    deleteBtn.className =
+      "text-red-500 hover:text-red-700 ml-2 focus:outline-none";
+    // Butonun içine çöp kutusu emojisi ekliyoruz.
+    deleteBtn.innerHTML = "🗑️";
+    // Butona tıklandığında deleteNote fonksiyonunu çağırarak notu siliyoruz.
+    deleteBtn.addEventListener("click", () => {
+      deleteNote(note.id);
+    });
+
+    // --------------- Düzenleme Butonu Oluşturma (çekmek isterseniz) ---------------
+    // İsterseniz tıpkı görevdeki gibi edit için bir buton ekleyebilirsiniz:
+    // const editBtn = document.createElement("button");
+    // editBtn.className = "text-yellow-500 hover:text-yellow-700 ml-2 focus:outline-none";
+    // editBtn.innerHTML = "✏️";
+    // editBtn.addEventListener("click", () => {
+    //   editNote(note.id);
+    // });
+
+    // --------------- <li> İçine Elemanları Eklemek ---------------
+    li.appendChild(checkbox);   // 1) Checkbox
+    li.appendChild(span);       // 2) Not metni
+    // li.appendChild(editBtn);  // 3) (İsteğe bağlı) Düzenleme butonu
+    li.appendChild(deleteBtn);  // 4) Silme butonu
+
+    // --------------- Listeye <li> Eklemek ---------------
+    noteListEl.appendChild(li);
+  });
+
+  // 6) Son olarak not sayacını güncelliyoruz.
+  updateNoteCounter();
+}
+
+// ------------- D) Not Ekleme ----------------------------
+
+// Bu fonksiyon, parametre olarak aldığı metin ile yeni bir not objesi oluşturur,
+// mevcut not dizisine ekler, localStorage'ı günceller ve listeyi yeniler.
+function addNote(text) {
+  // 1) Mevcut notları al
+  const notes = loadNotesFromLocalStorage();
+
+  // 2) Yeni not objesini oluştur
+  //    - id: Benzersiz bir kimlik oluşturmak için Date.now() kullanıyoruz ve string'e çeviriyoruz.
+  //    - text: Not yazısını trim() ile baş/son boşlukları silerek kaydediyoruz.
+  //    - completed: Yeni eklenen not başlangıçta tamamlanmamış (false) olacak.
+  const newNote = {
+    id: Date.now().toString(),
+    text: text.trim(),
+    completed: false,
+  };
+
+  // 3) Yeni notu dizinin sonuna ekle
+  notes.push(newNote);
+
+  // 4) Güncellenen dizi localStorage'a kaydet
+  saveNotesToLocalStorage(notes);
+
+  // 5) Mevcut filtreye göre listeyi tekrar çiz
+  renderNotes(currentNoteFilter);
+}
+
+// ------------- E) Not Durumunu Değiştirme ----------------
+
+// Bu fonksiyon, tıklanan checkbox'ın not id'sini alır,
+// o not objesinin completed değerini tersine çevirir, kaydeder ve listeyi yeniler.
+function toggleNoteCompleted(noteId) {
+  // 1) LocalStorage'dan mevcut notları al
+  const notes = loadNotesFromLocalStorage();
+
+  // 2) .map ile her notu dolaş, tıklanan notun id'si eşleşiyorsa completed değerini !completed yap,
+  //    diğerlerini olduğu gibi bırak.
+  const updatedNotes = notes.map((note) => {
+    if (note.id === noteId) {
+      return { ...note, completed: !note.completed };
+    }
+    return note;
+  });
+
+  // 3) Güncellenen diziyi localStorage'a kaydet
+  saveNotesToLocalStorage(updatedNotes);
+
+  // 4) Mevcut filtreye göre listeyi tekrar çiz
+  renderNotes(currentNoteFilter);
+}
+
+// ------------- F) Not Silme -----------------------------
+
+// Bu fonksiyon, tıklanan silme butonundan alınan not id'sini alır,
+// notes dizisinden o id'ye sahip objeyi çıkartır, kalanları kaydeder ve listeyi yeniler.
+function deleteNote(noteId) {
+  // 1) LocalStorage'dan mevcut notları al
+  const notes = loadNotesFromLocalStorage();
+
+  // 2) .filter ile not dizisinden tıklanan notun id'si hariç diğerlerini seç
+  const filteredNotes = notes.filter((note) => note.id !== noteId);
+
+  // 3) Kalan notları localStorage'a kaydet
+  saveNotesToLocalStorage(filteredNotes);
+
+  // 4) Mevcut filtreye göre listeyi tekrar çiz
+  renderNotes(currentNoteFilter);
+}
+
+// ------------- G) Not Sayacını Güncelleme ---------------
+
+// Bu fonksiyon, localStorage'dan notları alır,
+// tamamlanmamış olanları sayar ve altta görünen "X not kaldı" metnini günceller.
+function updateNoteCounter() {
+  // 1) LocalStorage'dan not listesini al
+  const notes = loadNotesFromLocalStorage();
+
+  // 2) Tamamlanmamış notları filtreleyip sayısını al
+  const activeCount = notes.filter((n) => !n.completed).length;
+
+  // 3) sayacı <div> öğesini seç
+  const counterEl = document.getElementById("note-counter");
+
+  // 4) İçeriğini güncelle: Örneğin "2 not kaldı"
+  counterEl.textContent = `${activeCount} not kaldı`;
+}
+
+// ------------- 9) Event Listener’ları ---------------------
+
+// DOMContentLoaded: HTML tamamen yüklendiğinde bu blok içindeki kodlar çalışır.
+// Böylece document.getElementById gibi seçimler hatasız çalışır.
+document.addEventListener("DOMContentLoaded", () => {
+  // ----- Görevler (tasks) için zaten tanımlı olan listener’lar -----
+  const addBtn = document.getElementById("add-task-btn");
+  const inputEl = document.getElementById("new-task-input");
+
+  addBtn.addEventListener("click", () => {
+    const text = inputEl.value;
+    if (text.trim() !== "") {
+      addTask(text);
+      inputEl.value = "";
+    }
+  });
+
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addBtn.click();
+    }
+  });
+
+  const filterButtons = document.querySelectorAll(".filter-btn");
+  filterButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      filterButtons.forEach((b) =>
+        b.classList.remove("bg-blue-500", "text-white")
+      );
+      filterButtons.forEach((b) =>
+        b.classList.add("bg-gray-200", "text-gray-700")
+      );
+      btn.classList.remove("bg-gray-200", "text-gray-700");
+      btn.classList.add("bg-blue-500", "text-white");
+      currentFilter = btn.getAttribute("data-filter");
+      renderTasks(currentFilter);
+    });
+  });
+
+  renderTasks(currentFilter);
+
+  // ----- Notlar (notes) için eklememiz gereken listener’lar -----
+  const addNoteBtn = document.getElementById("add-note-btn");
+  const newNoteInput = document.getElementById("new-note-input");
+
+  // “Ekle” butonuna tıklanınca addNote çalışsın
+  addNoteBtn.addEventListener("click", () => {
+    const text = newNoteInput.value;
+    if (text.trim() !== "") {
+      addNote(text);
+      newNoteInput.value = "";
+    }
+  });
+
+  // Enter tuşu ile not ekleme
+  newNoteInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addNoteBtn.click();
+    }
+  });
+
+  // Not filtre butonlarını seç (".note-filter-btn" sınıfına sahip tüm butonlar)
+  const noteFilterButtons = document.querySelectorAll(".note-filter-btn");
+  noteFilterButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      // a) Önce tüm butonların “pasif” stilini uygula (gri-koyu gri)
+      noteFilterButtons.forEach((b) =>
+        b.classList.remove("bg-green-500", "text-white")
+      );
+      noteFilterButtons.forEach((b) =>
+        b.classList.add("bg-gray-200", "text-gray-700")
+      );
+
+      // b) Tıklanan butonu “aktif” renge çevir (yeşil-beyaz)
+      btn.classList.remove("bg-gray-200", "text-gray-700");
+      btn.classList.add("bg-green-500", "text-white");
+
+      // c) Hangi filtre seçildiyse currentNoteFilter’ı güncelle
+      currentNoteFilter = btn.getAttribute("data-note-filter");
+      // d) renderNotes ile yeni filtreyi uygula
+      renderNotes(currentNoteFilter);
+    });
+  });
+
+  // İlk açılışta Notlar listesini çiz
+  renderNotes(currentNoteFilter);
 });
