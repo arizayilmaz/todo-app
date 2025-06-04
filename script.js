@@ -96,10 +96,19 @@ function renderTasks(filter = "all") {
       deleteTask(task.id);
     });
 
+    // --------------- Düzenleme Butonu Oluşturma ---------------
+    const editBtn = document.createElement("button");
+    editBtn.className = "text-green-500 hover:text-green-700 ml-2 focus:outline-none";
+    editBtn.innerHTML = "✏️";
+    editBtn.addEventListener("click", () => {
+      editTask(task.id);
+    });
+
     // --------------- <li> İçine Elemanları Eklemek ---------------
     li.appendChild(checkbox);   // 1) Checkbox
     li.appendChild(span);       // 2) Görev metni
-    li.appendChild(deleteBtn);  // 3) Silme butonu
+    li.appendChild(editBtn);    // 3) Düzenleme butonu
+    li.appendChild(deleteBtn);  // 4) Silme butonu
 
     // --------------- Listeye <li> Eklemek ---------------
     taskListEl.appendChild(li);
@@ -161,7 +170,37 @@ function toggleTaskCompleted(taskId) {
   renderTasks(currentFilter);
 }
 
-// ------------- 6) Görev Silme -----------------------------
+// ------------- 6) Görev Düzenleme -----------------------------
+
+// Bu fonksiyon, verilen görev id'sine ait metni kullanıcıdan aldığı yeni metin
+// ile günceller. Metin boş bırakılmazsa localStorage güncellenir ve liste
+// mevcut filtreye göre yeniden çizilir.
+function editTask(taskId) {
+  // 1) LocalStorage'dan mevcut görevleri al
+  const tasks = loadTasksFromLocalStorage();
+
+  // 2) Düzenlenecek görevi bul
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task) return;
+
+  // 3) Kullanıcıdan yeni metni al. İptal edilirse null döner.
+  const newText = prompt("Görev metnini düzenleyin:", task.text);
+  if (newText === null) return;
+
+  const trimmed = newText.trim();
+  if (trimmed === "") return;
+
+  // 4) Görevi güncelle
+  const updatedTasks = tasks.map((t) =>
+    t.id === taskId ? { ...t, text: trimmed } : t
+  );
+
+  // 5) Kaydet ve listeyi güncelle
+  saveTasksToLocalStorage(updatedTasks);
+  renderTasks(currentFilter);
+}
+
+// ------------- 7) Görev Silme -----------------------------
 
 // Bu fonksiyon, tıklanan silme butonundan alınan görev id'sini alır,
 // tasks dizisinden o id'ye sahip objeyi çıkartır, kalanları kaydeder ve listeyi yeniler.
@@ -179,7 +218,7 @@ function deleteTask(taskId) {
   renderTasks(currentFilter);
 }
 
-// ------------- 7) Görev Sayacını Güncelleme ---------------
+// ------------- 8) Görev Sayacını Güncelleme ---------------
 
 // Bu fonksiyon, localStorage'dan görevleri alır,
 // tamamlanmamış olanları sayar ve altta görünen "X görev kaldı" metnini günceller.
@@ -197,7 +236,7 @@ function updateTaskCounter() {
   counterEl.textContent = `${activeCount} görev kaldı`;
 }
 
-// ------------- 8) Event Listener’ları ---------------------
+// ------------- 9) Event Listener’ları ---------------------
 
 // DOMContentLoaded: HTML tamamen yüklendiğinde bu blok içindeki kodlar çalışır.
 // Böylece document.getElementById gibi seçimler hatasız çalışır.
